@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SnackTrack & JamHack</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+
+    <main class="container">
+        <header>
+            <h1>SnackTrack & JamHack 🎵 snacking</h1>
+            <p>The AI companion ensuring your vibes, snacks, and beats are always in perfect alignment.</p>
+        </header>
+
+        <section id="analyzer">
+            <div class="video-container">
+                <video id="webcam" autoplay playsinline></video>
+                <div id="overlay" class="hidden">
+                    <div class="spinner"></div>
+                    <p>Analyzing your vibe...</p>
+                </div>
+            </div>
+            <button id="capture-btn">Analyze My Mood</button>
+        </section>
+
+        <section id="results" class="hidden">
+            <h2>Your Official Mood Menu</h2>
+            <div class="result-card">
+                <div class="mood-detected">
+                    <span id="mood-emoji"></span>
+                    <h3 id="mood-text"></h3>
+                </div>
+                <p class="diagnosis" id="mood-message"></p>
+                <div class="pairing">
+                    <div class="recommendation">
+                        <h4>🎵 JamHack Music</h4>
+                        <p id="music-rec"></p>
+                    </div>
+                    <div class="recommendation">
+                        <h4>snacking SnackTrack</h4>
+                        <p id="snack-rec"></p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <script>
+        // --- DOM Elements ---
+        const webcamElement = document.getElementById('webcam');
+        const canvasElement = document.getElementById('canvas');
+        const captureBtn = document.getElementById('capture-btn');
+        const resultsSection = document.getElementById('results');
+        const overlay = document.getElementById('overlay');
+
+        // --- Initialize Webcam ---
+        async function setupWebcam() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                webcamElement.srcObject = stream;
+            } catch (err) {
+                console.error("Error accessing webcam: ", err);
+                alert("Could not access your webcam. Please enable it in your browser settings.");
+            }
+        }
+
+        // --- Capture and Analyze Mood ---
+        captureBtn.addEventListener('click', async () => {
+            // 1. Show loading overlay
+            overlay.classList.remove('hidden');
+            resultsSection.classList.add('hidden');
+            captureBtn.disabled = true;
+            captureBtn.textContent = 'Analyzing...';
+
+            // 2. Capture frame from video to canvas
+            const context = canvasElement.getContext('2d');
+            canvasElement.width = webcamElement.videoWidth;
+            canvasElement.height = webcamElement.videoHeight;
+            context.drawImage(webcamElement, 0, 0, canvasElement.width, canvasElement.height);
+
+            // 3. Convert canvas image to Base64 data URL
+            const imageDataURL = canvasElement.toDataURL('image/jpeg');
+
+            // 4. Send image data to the Flask backend
+            try {
+                const response = await fetch('/analyze', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: imageDataURL })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`Server error: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // 5. Display the results
+                displayResults(data);
+
+            } catch (error) {
+                console.error('Error during analysis:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                // 6. Hide loading overlay and re-enable button
+                overlay.classList.add('hidden');
+                captureBtn.disabled = false;
+                captureBtn.textContent = 'Analyze My Mood Again';
+            }
+        });
+
+        function displayResults(data) {
+            const { mood, recommendation } = data;
+
+            // Update the text content of the result elements
+            document.getElementById('mood-emoji').textContent = recommendation.emoji;
+            document.getElementById('mood-text').textContent = mood.charAt(0).toUpperCase() + mood.slice(1);
+            document.getElementById('mood-message').textContent = `"${recommendation.message}"`;
+            document.getElementById('music-rec').textContent = recommendation.music_genre;
+            document.getElementById('snack-rec').textContent = recommendation.snack;
+
+            // Show the results section
+            resultsSection.classList.remove('hidden');
+        }
+
+        // --- Start the application ---
+        window.addEventListener('load', setupWebcam);
+    </script>
+</body>
+
+</html>
