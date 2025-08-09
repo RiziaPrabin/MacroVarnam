@@ -15,7 +15,7 @@
 
     <main class="container">
         <header>
-            <h1>SnackTrack & JamHack 🎵 snacking</h1>
+            <h1>SnackTrack & JamHack 🎵</h1>
             <p>The AI companion ensuring your vibes, snacks, and beats are always in perfect alignment.</p>
         </header>
 
@@ -38,16 +38,25 @@
                     <h3 id="mood-text"></h3>
                 </div>
                 <p class="diagnosis" id="mood-message"></p>
+
+                <!-- === HTML MODIFICATION START === -->
+                <!-- We now have dedicated containers for the video and the image -->
                 <div class="pairing">
                     <div class="recommendation">
                         <h4>🎵 JamHack Music</h4>
-                        <p id="music-rec"></p>
+                        <!-- This div will hold the YouTube iframe -->
+                        <div id="music-container"></div>
+                        <p id="music-rec-text"></p>
                     </div>
                     <div class="recommendation">
-                        <h4>snacking SnackTrack</h4>
-                        <p id="snack-rec"></p>
+                        <h4>SnackTrack</h4>
+                        <!-- This div will hold the food image -->
+                        <div id="snack-container"></div>
+                        <p id="snack-rec-text"></p>
                     </div>
                 </div>
+                <!-- === HTML MODIFICATION END === -->
+
             </div>
         </section>
 
@@ -70,7 +79,8 @@
                 webcamElement.srcObject = stream;
             } catch (err) {
                 console.error("Error accessing webcam: ", err);
-                alert("Could not access your webcam. Please enable it in your browser settings.");
+                // Replaced alert with a console log to avoid blocking UI in some environments
+                console.error("Could not access your webcam. Please enable it in your browser settings.");
             }
         }
 
@@ -100,7 +110,7 @@
                 });
 
                 if (!response.ok) {
-                    throw new Error(`Server error: ${response.status}`);
+                    throw new Error(Server error: ${response.status});
                 }
 
                 const data = await response.json();
@@ -110,7 +120,8 @@
 
             } catch (error) {
                 console.error('Error during analysis:', error);
-                alert('An error occurred. Please try again.');
+                // Replaced alert with a console log
+                console.error('An error occurred. Please try again.');
             } finally {
                 // 6. Hide loading overlay and re-enable button
                 overlay.classList.add('hidden');
@@ -119,19 +130,56 @@
             }
         });
 
+        // === JAVASCRIPT MODIFICATION START ===
         function displayResults(data) {
+            if (!data || !data.recommendation) {
+                console.error("Invalid data received from server:", data);
+                return;
+            }
             const { mood, recommendation } = data;
 
-            // Update the text content of the result elements
-            document.getElementById('mood-emoji').textContent = recommendation.emoji;
+            // --- Update Text Content ---
+            document.getElementById('mood-emoji').textContent = recommendation.emoji || '🤔';
             document.getElementById('mood-text').textContent = mood.charAt(0).toUpperCase() + mood.slice(1);
-            document.getElementById('mood-message').textContent = `"${recommendation.message}"`;
-            document.getElementById('music-rec').textContent = recommendation.music_genre;
-            document.getElementById('snack-rec').textContent = recommendation.snack;
+            document.getElementById('mood-message').textContent = "${recommendation.message}";
 
-            // Show the results section
+            // --- Create and Display YouTube Iframe ---
+            const musicContainer = document.getElementById('music-container');
+            musicContainer.innerHTML = ''; // Clear previous content
+            if (recommendation.song_embed_url) {
+                const iframe = document.createElement('iframe');
+                iframe.width = "100%"; // Make it responsive
+                iframe.height = "250";
+                iframe.src = recommendation.song_embed_url;
+                iframe.title = "YouTube video player";
+                iframe.frameborder = "0";
+                iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share";
+                iframe.allowFullscreen = true;
+                musicContainer.appendChild(iframe);
+            }
+            document.getElementById('music-rec-text').textContent = ${recommendation.song} by ${recommendation.artist};
+
+
+            // --- Create and Display Snack Image ---
+            const snackContainer = document.getElementById('snack-container');
+            snackContainer.innerHTML = ''; // Clear previous content
+            if (recommendation.food_image_url) {
+                const img = document.createElement('img');
+                img.src = recommendation.food_image_url;
+                img.alt = recommendation.snack;
+                img.onerror = () => {
+                    // Fallback if the image fails to load
+                    img.src = 'https://placehold.co/500x300/f0f0f0/333?text=Snack+Image';
+                };
+                snackContainer.appendChild(img);
+            }
+            document.getElementById('snack-rec-text').textContent = recommendation.snack;
+
+
+            // --- Show the results section ---
             resultsSection.classList.remove('hidden');
         }
+        // === JAVASCRIPT MODIFICATION END ===
 
         // --- Start the application ---
         window.addEventListener('load', setupWebcam);
